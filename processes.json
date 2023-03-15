@@ -1,0 +1,27 @@
+[
+    {
+        "script": "app.js",
+        "name": "cashback",
+        "ignore_watch": [
+            "node_modules"
+        ],
+        "env": {
+            "mongoose_url": "mongodb://localhost:27017",
+            "database_name": "cashback",
+            "SECRET_KEY": "8Zz5tw0Ionm3XPZZfN0NOml3z9FMfmpgXwovR9fp6ryDIoGRM8EPHAB6iHsc0fb",
+            "JWT_EXPIRE": "2h",
+            "SECRET_REFRESH_KEY": "SEJNUkVGUkVTSFRPS0VO",
+            "JWT_REFRESH_EXPIRE": "10d",
+            "IMAGE_URL": "http://54.179.172.33:7070/"
+        },
+        "env_production": {
+            "mongoose_url": "mongodb://localhost:27017",
+            "database_name": "cashback",
+            "SECRET_KEY": "8Zz5tw0Ionm3XPZZfN0NOml3z9FMfmpgXwovR9fp6ryDIoGRM8EPHAB6iHsc0fb",
+            "JWT_EXPIRE": "2h",
+            "SECRET_REFRESH_KEY": "SEJNUkVGUkVTSFRPS0VO",
+            "JWT_REFRESH_EXPIRE": "10d",
+            "IMAGE_URL": "http://54.179.172.33:7070/"
+        }
+    }
+]
