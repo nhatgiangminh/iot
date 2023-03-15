@@ -1,3 +1,4 @@
+/* eslint-disable no-param-reassign */
 /* eslint-disable no-underscore-dangle */
 /* eslint-disable no-use-before-define */
 const mongoose = require('mongoose');
@@ -64,22 +65,29 @@ const userSchema = new Schema({
   toJSON: { getters: true },
   id: false,
 });
+
+// trường ảo
 userSchema.virtual('avatarPath').get(() => {
   if (this.avatar) { return `${process.env.IMAGE_URL}user/${this.id}/avatar/${this.avatar}`; }
   return `${process.env.IMAGE_URL}/defaultAvatar.jpg`;
 });
 
+// tự lưu ngày tạo và ngày cập nhật lúc tạo
 userSchema.pre('save', function (next) {
   this.set({ createdAt: new Date().valueOf() });
   this.set({ updatedAt: new Date().valueOf() });
   next();
 });
-userSchema.pre(['updateOne', 'findOneAndUpdate', 'updateOne', 'findByIdAndUpdate'], function (next) {
+
+// tự cập nhật ngày cập nhật gần nhất khi chỉ sửa
+userSchema.pre(['updateOne', 'findOneAndUpdate', 'findByIdAndUpdate'], function (next) {
   this.set({ updatedAt: new Date().valueOf() });
   next();
 });
 
 const User = mongoose.model('User', userSchema);
+
+// tạo data ban đầu từ data  trong mục config
 async function initUser() {
   // create role
   const role = await Role.find();
@@ -100,7 +108,6 @@ async function initUser() {
       return { ...acc, [id]: cur };
     }, {});
     listUserCreate.map((item) => {
-      // eslint-disable-next-line no-param-reassign
       item.role = roleKey[item.role]._id;
       return item;
     });

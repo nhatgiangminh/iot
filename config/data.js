@@ -1,3 +1,4 @@
+// data khởi tạo ban đầu
 const date = new Date().valueOf();
 exports.data = {
   role:

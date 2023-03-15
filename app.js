@@ -25,8 +25,12 @@ app.use(loggerRequestMiddleware);
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
 app.use(cors());
+
+// public thư mục public và tmp
 app.use(express.static(`${__dirname}/public`));
 app.use(express.static(`${__dirname}/tmp`));
+
+// sử dụng upload tự tạo thư mục nếu chưa tồn tại
 app.use(fileUpload({ createParentPath: true }));
 
 // run server
@@ -36,18 +40,20 @@ app.listen(config.server.port, (err) => {
     process.exit(1);
   }
   /* eslint-disable */
+  // kêt nối db
   fs.readdirSync(path.join(__dirname, './models')).map((file) => {
     require(`./models/${file}`);
   });
   connectDB();
 
   // import Router
-  /* eslint-disable */
   fs.readdirSync(path.join(__dirname, './routes')).map((file) => {
     require(`./routes/${file}`)(app, router);
   });
+
+  // cấu hình link swagger
   app.use('/api-docs/mobile', swaggerUi.serveFiles(swaggerMobileDocument), swaggerUi.setup(swaggerMobileDocument));
-app.use('/api-docs', swaggerUi.serveFiles(swaggerDocument), swaggerUi.setup(swaggerDocument));
+  app.use('/api-docs', swaggerUi.serveFiles(swaggerDocument), swaggerUi.setup(swaggerDocument));
 
   logger.info(
     `API is now running on port ${config.server.port} in ${config.server.environment} mode`,
