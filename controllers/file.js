@@ -14,9 +14,12 @@ const convertExcelToJson = (data) => {
       return [];
     }
 
+    // chuyển excel sang json
     const wb = xlsx.readFile(path);
     const ws = wb.Sheets[wb.SheetNames[0]];
     const dataExcel = xlsx.utils.sheet_to_json(ws, { raw: true });
+
+    // trả về data json
     return dataExcel;
   } catch (error) {
     logger.error(error);
