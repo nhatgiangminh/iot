@@ -1,7 +1,44 @@
 /* eslint-disable consistent-return */
 /* eslint-disable default-param-last */
 const fs = require('fs');
+const xlsx = require('xlsx');
 const logger = require('../utils/logger');
+
+const convertExcelToJson = (data) => {
+  try {
+    const month = `${new Date().getMonth()}-${new Date().getFullYear()}`;
+    const path = __dirname.replace('controllers', `public/device/${data.projectId}/${month}/${data.type}/${data.file}`);
+
+    // không tìn thấy file
+    if (!fs.existsSync(path)) {
+      return [];
+    }
+
+    const wb = xlsx.readFile(path);
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const dataExcel = xlsx.utils.sheet_to_json(ws, { raw: true });
+    return dataExcel;
+  } catch (error) {
+    logger.error(error);
+    return [];
+  }
+};
+const convertJsonIntoExcel = (data) => {
+  const date = new Date().valueOf();
+
+  // chuyển json sang excel
+  const workSheet = xlsx.utils.json_to_sheet(data.json);
+  const workBook = xlsx.utils.book_new();
+  xlsx.utils.book_append_sheet(workBook, workSheet, 'bill');
+  xlsx.write(workBook, { bookType: 'xlsx', type: 'buffer' });
+  xlsx.write(workBook, { bookType: 'xlsx', type: 'binary' });
+
+  // đưa file vào thư mục chỉ định
+  xlsx.writeFile(workBook, `${data.path}/${data.type}_${date}.xlsx`);
+
+  // trả về link
+  return `${process.env.IMAGE_URL}/${data.type}/${data.month}/${data.type}_${date}.xlsx`;
+};
 
 const moveFile = (data) => {
   const { fileName, oldFileName, path } = data;
