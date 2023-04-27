@@ -1,25 +1,29 @@
 /* eslint-disable no-underscore-dangle */
 /* eslint-disable consistent-return */
+const EventEmitter = require('events');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const User = require('../models/user');
-const logger = require('../utils/logger/index');
+const Role = require('../models/role');
+const clientMqtt = require('../services/mqttService');
 
+const eventEmitter = new EventEmitter();
 const login = async (req, res) => {
   try {
-    const { phone, password } = req.body;
+    const { username, password } = req.body;
     const user = await User.findOne(
       {
         status: true,
         isDeleted: false,
         $or: [
-          { phone },
-          { userName: phone },
+          {
+            code: username,
+          },
         ],
       },
-    );
+    ).populate('role', 'value');
     if (!user) {
-      return res.status(403).send({
+      return res.status(400).send({
         success: false,
         error: 'User not exist!',
       });
@@ -31,12 +35,20 @@ const login = async (req, res) => {
         error: 'password wrong!!!',
       });
     }
-    const token = jwt.sign({ _id: user._id }, process.env.SECRET_KEY, {
-      expiresIn: process.env.JWT_EXPIRE,
-    });
-    const refreshToken = jwt.sign({ _id: user._id }, process.env.SECRET_REFRESH_KEY, {
-      expiresIn: process.env.JWT_REFRESH_EXPIRE,
-    });
+    const token = jwt.sign(
+      { _id: user._id, role: user.role.value },
+      process.env.SECRET_KEY,
+      {
+        expiresIn: process.env.JWT_EXPIRE,
+      },
+    );
+    const refreshToken = jwt.sign(
+      { _id: user._id, role: user.role.value },
+      process.env.SECRET_REFRESH_KEY,
+      {
+        expiresIn: process.env.JWT_REFRESH_EXPIRE,
+      },
+    );
     return res.status(200).send({
       success: true,
       data: {
@@ -45,7 +57,6 @@ const login = async (req, res) => {
       },
     });
   } catch (error) {
-    logger.error(error);
     return res.status(400).send({
       success: false,
       error: error.message,
@@ -63,8 +74,8 @@ const createRefreshToken = async (req, res) => {
       });
     }
     const verify = jwt.verify(refreshToken, process.env.SECRET_REFRESH_KEY);
-    const { _id } = verify;
-    const token = jwt.sign({ _id }, process.env.SECRET_KEY, {
+    const { _id, code, role } = verify;
+    const token = jwt.sign({ _id, code, role }, process.env.SECRET_KEY, {
       expiresIn: process.env.JWT_EXPIRE,
     });
     res.status(200).send({
@@ -111,18 +122,65 @@ const changePassword = async (req, res) => {
     });
   }
 };
-
-const forgotPassword = async (req, res) => {
+const createUser = async (req, res) => {
   try {
-    const { phone, newPassword } = req.body;
-    const user = await User.findOne({ phone }).exec();
+    const { body } = req;
+    const role = await Role.findOne({ value: body.role });
     const salt = await bcrypt.genSalt(10);
-    const hashPassword = await bcrypt.hash(newPassword, salt);
-    user.password = hashPassword;
-    await user.save();
-    return res.status(200).send({
-      success: true,
-      data: user,
+    const password = await bcrypt.hash('12345678', salt);
+    if (role) {
+      await User.create({ ...body, role: role._id, password });
+      return res.status(200).send({
+        status: true,
+      });
+    }
+    return res.status(400).send({
+      success: false,
+      error: 'Sai vai trò',
+    });
+  } catch (error) {
+    console.log(error);
+    return res.status(400).send({
+      success: false,
+      error: error.message,
+    });
+  }
+};
+// const forgotPassword = async (req, res) => {
+//   try {
+//     const { phone, newPassword } = req.body;
+//     const user = await User.findOne({ phone }).exec();
+//     const salt = await bcrypt.genSalt(10);
+//     const hashPassword = await bcrypt.hash(newPassword, salt);
+//     user.password = hashPassword;
+//     await user.save();
+//     return res.status(200).send({
+//       success: true,
+//       data: user,
+//     });
+//   } catch (error) {
+//     return res.status(400).send({
+//       success: false,
+//       error: error.message,
+//     });
+//   }
+// };
+
+const getProfile = async (req, res) => {
+  try {
+    const token = req.headers.authorization.split(' ')[1];
+    const userCode = jwt.verify(token, process.env.SECRET_KEY);
+    const userId = userCode._id;
+    const userProfile = await User.findById(userId).select('-__v -password').populate('role', 'value');
+    if (userProfile) {
+      return res.status(200).send({
+        status: true,
+        data: userProfile,
+      });
+    }
+    return res.status(400).send({
+      status: false,
+      error: 'User not found!',
     });
   } catch (error) {
     return res.status(400).send({
@@ -131,29 +189,151 @@ const forgotPassword = async (req, res) => {
     });
   }
 };
-
-const getProfile = async (req, res) => {
+const getUsers = async (req, res) => {
   try {
-    const { lang } = req.query;
-    const bearerToken = req.headers.authorization.split(' ')[1];
-    const verify = jwt.verify(bearerToken, process.env.SECRET_KEY);
-    const userId = verify._id;
-    const user = await User.findById(userId).select('-password -__v').populate('role', '-__v ');
-    const { fullName } = user;
-    const roleName = user.role.text;
-    if (lang === 'en') {
-      user._doc.name = fullName.en;
-      user.role._doc.text = roleName.en;
-    } else {
-      user._doc.name = fullName.vn;
-      user.role._doc.text = roleName.vn;
+    const users = await User.find().select('-__v -password').populate('role', 'value');
+    if (users) {
+      return res.status(200).send({
+        status: true,
+        data: users,
+      });
     }
-    delete user._doc.fullName;
-    return res.status(200).send({
-      success: true,
-      data: user,
+  } catch (error) {
+    return res.status(400).send({
+      success: false,
+      error: error.message,
+    });
+  }
+};
+const getUser = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    // const user = res
+    const user = await User.findById(userId);
+    if (user) {
+      return res.status(200).send({
+        status: true,
+        data: user,
+      });
+    }
+    return res.status(400).send({
+      status: false,
+      error: 'Người dùng không tồn tại',
     });
   } catch (error) {
+    console.log(error);
+    return res.status(400).send({
+      success: false,
+      error: error.message,
+    });
+  }
+};
+
+const checkRfid = async (req, res) => {
+  try {
+    let mess;
+    let timeOut;
+    clientMqtt.subscribe('user/rfid/data');
+    clientMqtt.publish('user/rfid', 'check');
+    const token = req.headers.authorization.split(' ')[1];
+    const userId = jwt.verify(token, process.env.SECRET_KEY)._id;
+    const user = await User.findById(userId).select('-__v -password');
+    console.log(clientMqtt.connected);
+    clientMqtt.once('message', (topic, message) => {
+      console.log(1);
+      if (topic === 'user/rfid/data' && message) {
+        const rfid = message.toString();
+        if (user.rfid === rfid) {
+          mess = {
+            code: 200,
+            status: true,
+            data: user,
+          };
+          eventEmitter.emit('done', mess);
+          clearTimeout(timeOut);
+        } else {
+          mess = {
+            code: 400,
+            status: false,
+            error: 'Thẻ sinh viên không khớp',
+          };
+          eventEmitter.emit('done', mess);
+          clearTimeout(timeOut);
+        }
+        clientMqtt.unsubscribe('user/rfid/data');
+      }
+    });
+    timeOut = setTimeout(() => eventEmitter.emit('done'), 10000);
+    const response = await new Promise((resolve) => { eventEmitter.once('done', resolve); });
+    if (response) {
+      return res.status(response.code).send({
+        status: response.status,
+        error: response?.error ?? false,
+        data: response?.data ?? [],
+      });
+    }
+    clientMqtt.removeAllListeners('message');
+    return res.status(400).send({
+      status: false,
+      error: 'Không nhận được thông tin thẻ! Vui lòng thử lại',
+    });
+  } catch (error) {
+    return res.status(400).send({
+      success: false,
+      error: error.message,
+    });
+  }
+};
+const updateUserRfid = async (req, res) => {
+  try {
+    clientMqtt.subscribe('user/rfid/data');
+    clientMqtt.publish('user/rfid', 'check');
+    // const token = req.headers.authorization.split(' ')[1];
+    // const userId = jwt.verify(token, process.env.SECRET_KEY)._id;
+    const { userId } = req.body;
+    let mess;
+    let timeOut;
+    console.log(clientMqtt.connected);
+    clientMqtt.once('message', async (topic, message) => {
+      console.log(2);
+      if (topic === 'user/rfid/data' && message) {
+        const rfid = message.toString();
+        const check = await User.findOne({ rfid });
+        if (check) {
+          mess = {
+            code: 400,
+            status: false,
+            error: 'Mã rfid đã được sử dụng',
+          };
+          eventEmitter.emit('done', mess);
+          clearTimeout(timeOut);
+        } else {
+          await User.findByIdAndUpdate(userId, { rfid });
+          mess = {
+            code: 200,
+            status: true,
+          };
+          eventEmitter.emit('done', mess);
+          clearTimeout(timeOut);
+        }
+      }
+      clientMqtt.unsubscribe('user/rfid/data');
+    });
+    timeOut = setTimeout(() => eventEmitter.emit('done'), 10000);
+    const response = await new Promise((resolve) => { eventEmitter.once('done', resolve); });
+    if (response) {
+      return res.status(response.code).send({
+        status: response.status,
+        error: response?.error ?? false,
+      });
+    }
+    clientMqtt.removeAllListeners('message');
+    return res.status(400).send({
+      status: false,
+      error: 'Không nhận được thông tin thẻ! Vui lòng thử lại',
+    });
+  } catch (error) {
+    console.log(error);
     return res.status(400).send({
       success: false,
       error: error.message,
@@ -165,6 +345,10 @@ module.exports = {
   login,
   createRefreshToken,
   changePassword,
-  forgotPassword,
   getProfile,
+  createUser,
+  checkRfid,
+  updateUserRfid,
+  getUsers,
+  getUser,
 };

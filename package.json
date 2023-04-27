@@ -41,10 +41,7 @@
     "dotenv": "^6.0.0",
     "express-fileupload": "^1.4.0",
     "jsonwebtoken": "^9.0.0",
-    "swagger-jsdoc": "^6.2.8",
-    "swagger-ui-express": "^4.6.2",
-    "xlsx": "^0.18.5",
-    "yamljs": "^0.3.0",
+    "mqtt": "^4.3.7",
     "yup": "^0.32.11"
   }
 }

@@ -9,39 +9,46 @@ const { data } = require('../config/data');
 const { Schema } = mongoose;
 
 const userSchema = new Schema({
-  fullName: {
-    en: String,
-    vn: String,
-  },
+  fullName: String,
   avatar: {
     type: String,
     default: null,
   },
-  birthday: String,
+  birthday: {
+    type: String,
+    default: null,
+  },
   gender: {
     type: Number,
     enum: [0, 1, 2],
     default: 2,
   },
-  phone: {
+  code: {
     type: String,
     unique: true,
   },
-  userName: {
+  username: {
     type: String,
   },
   password: {
     type: String,
+    default: '$2a$10$y6SU8dMEg.rRSZxWCM7VMeWf3YbFph4zyE/drO.5M1ppX/JPJCKLy',
   },
   email: {
     type: String,
     unique: true,
     default: null,
   },
+  major: String,
   role: {
     type: Schema.Types.ObjectId,
     ref: 'Role',
     required: true,
+  },
+  rfid: {
+    type: String,
+    default: null,
+    unique: true,
   },
   status: {
     type: Boolean,
@@ -62,7 +69,7 @@ const userSchema = new Schema({
     default: null,
   },
 }, {
-  toJSON: { getters: true },
+  toJSON: { virtuals: true },
   id: false,
 });
 
@@ -93,7 +100,7 @@ async function initUser() {
   const role = await Role.find();
   const listValueRole = Array.from(role, ({ value }) => value);
   const listRoleCreate = data.role.filter((item) => !listValueRole.includes(item.value));
-  if (listRoleCreate.length > 0) {
+  if (listRoleCreate.length) {
     await Role.insertMany(listRoleCreate);
   }
 

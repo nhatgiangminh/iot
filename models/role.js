@@ -4,10 +4,7 @@ const { Schema } = mongoose;
 
 const roleSchema = new Schema({
   value: String,
-  text: {
-    en: String,
-    vn: String,
-  },
+  text: String,
   active: {
     type: Boolean,
   },
