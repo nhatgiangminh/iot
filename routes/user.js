@@ -1,6 +1,6 @@
 const {
   login, createRefreshToken, changePassword, getProfile, createUser,
-  checkRfid, updateUserRfid, getUsers, getUser,
+  checkRfid, updateUserRfid, getUsers, getUser, updateUser,
 } = require('../controllers/user');
 const { authorize } = require('../middlewares/authorize');
 
@@ -12,7 +12,8 @@ module.exports = (app, router) => {
   router.post('/users', authorize(['ADMIN']), createUser);
   router.get('/users/check-rfid', authorize(['ADMIN', 'STUDENT', 'TEACHER']), checkRfid);
   router.put('/users/update-rfid', authorize(['ADMIN']), updateUserRfid);
-  router.get('/users/list', authorize(['ADMIN']), getUsers);
+  router.get('/users/list', authorize(['ADMIN', 'TEACHER', 'STUDENT']), getUsers);
   router.get('/users/:userId', authorize(['ADMIN', 'STUDENT', 'TEACHER']), getUser);
+  router.put('/users/:userId', authorize(['ADMIN', 'STUDENT', 'TEACHER']), updateUser);
   app.use('/v1', router);
 };

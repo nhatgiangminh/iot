@@ -74,8 +74,8 @@ const createRefreshToken = async (req, res) => {
       });
     }
     const verify = jwt.verify(refreshToken, process.env.SECRET_REFRESH_KEY);
-    const { _id, code, role } = verify;
-    const token = jwt.sign({ _id, code, role }, process.env.SECRET_KEY, {
+    const { _id, role } = verify;
+    const token = jwt.sign({ _id, role }, process.env.SECRET_KEY, {
       expiresIn: process.env.JWT_EXPIRE,
     });
     res.status(200).send({
@@ -209,7 +209,7 @@ const getUser = async (req, res) => {
   try {
     const { userId } = req.params;
     // const user = res
-    const user = await User.findById(userId);
+    const user = await User.findById(userId).select('-password -__v').populate('role', 'value');
     if (user) {
       return res.status(200).send({
         status: true,
@@ -219,6 +219,36 @@ const getUser = async (req, res) => {
     return res.status(400).send({
       status: false,
       error: 'Người dùng không tồn tại',
+    });
+  } catch (error) {
+    console.log(error);
+    return res.status(400).send({
+      success: false,
+      error: error.message,
+    });
+  }
+};
+
+const updateUser = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { body } = req;
+    const role = await Role.findOne({ value: body.role });
+    if (!role) {
+      return res.status(400).send({
+        success: false,
+        error: 'Sai vai trò!',
+      });
+    }
+    const user = await User.findByIdAndUpdate(userId, { ...body, role: role._id });
+    if (!user) {
+      return res.status(400).send({
+        success: false,
+        error: 'Người dùng không tồn tại!',
+      });
+    }
+    return res.status(200).send({
+      success: true,
     });
   } catch (error) {
     console.log(error);
@@ -272,6 +302,7 @@ const checkRfid = async (req, res) => {
         data: response?.data ?? [],
       });
     }
+    clientMqtt.publish('user/rfid', 'close');
     clientMqtt.removeAllListeners('message');
     return res.status(400).send({
       status: false,
@@ -293,9 +324,7 @@ const updateUserRfid = async (req, res) => {
     const { userId } = req.body;
     let mess;
     let timeOut;
-    console.log(clientMqtt.connected);
     clientMqtt.once('message', async (topic, message) => {
-      console.log(2);
       if (topic === 'user/rfid/data' && message) {
         const rfid = message.toString();
         const check = await User.findOne({ rfid });
@@ -327,13 +356,13 @@ const updateUserRfid = async (req, res) => {
         error: response?.error ?? false,
       });
     }
+    clientMqtt.publish('user/rfid', 'close');
     clientMqtt.removeAllListeners('message');
     return res.status(400).send({
       status: false,
       error: 'Không nhận được thông tin thẻ! Vui lòng thử lại',
     });
   } catch (error) {
-    console.log(error);
     return res.status(400).send({
       success: false,
       error: error.message,
@@ -351,4 +380,5 @@ module.exports = {
   updateUserRfid,
   getUsers,
   getUser,
+  updateUser,
 };

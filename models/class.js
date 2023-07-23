@@ -16,7 +16,10 @@ const classSchema = new Schema({
     unique: true,
   },
   time: {
-    day: String,
+    day: {
+      type: String,
+      enum: ['MON', 'TUES', 'WED', 'THURS', 'FRI', 'SAT', 'SUN'],
+    },
     from: String,
     to: String,
   },
@@ -24,6 +27,12 @@ const classSchema = new Schema({
     {
       type: Schema.Types.ObjectId,
       ref: 'User',
+    },
+  ],
+  sessions: [
+    {
+      type: Schema.Types.ObjectId,
+      ref: 'Session',
     },
   ],
   active: {
